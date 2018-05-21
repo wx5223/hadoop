@@ -1,13 +1,13 @@
 package com.shawn.mr.user;
 
 
-public class UserTotal {
+public class UserAll {
     //用户总表
     private String userId;
-    private String phone;
-    private String email;
     private String nickName;
+    private String phone;
     private String realName;
+    private String email;
     private String state;
     private String batchCode;
 
@@ -59,12 +59,14 @@ public class UserTotal {
     private String platformIdListStr;
     private String platformNameListStr;
     private String platformTypeListStr;
+    private String platformUserIdListStr;
 
     //省市相关
     private String provinceName;
     private String cityName;
     private String countyName;
     private String streetName;
+    private String provinceCode;
 
 
 

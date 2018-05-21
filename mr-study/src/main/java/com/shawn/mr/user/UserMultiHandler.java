@@ -16,14 +16,20 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.LazyOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
-public class UserMapReduce {
+public class UserMultiHandler {
 
     static class RawDataMapper extends Mapper<LongWritable, Text, Text, Text> {
         @Override
@@ -87,6 +93,46 @@ public class UserMapReduce {
     }
 
     static class RawDataReduce extends Reducer<Text,Text,NullWritable,Text>{
+        private static Map<String, String> provinceCodeMap = new HashMap<String, String>();
+        static {
+            provinceCodeMap.put("1664", "410000");
+            provinceCodeMap.put("1262", "350000");
+            provinceCodeMap.put("2301", "450000");
+            provinceCodeMap.put("629", "220000");
+            provinceCodeMap.put("861", "310000");
+            provinceCodeMap.put("881", "320000");
+            provinceCodeMap.put("1010", "330000");
+            provinceCodeMap.put("1123", "340000");
+            provinceCodeMap.put("377", "150000");
+            provinceCodeMap.put("2439", "460000");
+            provinceCodeMap.put("2469", "500000");
+            provinceCodeMap.put("2832", "530000");
+            provinceCodeMap.put("2510", "510000");
+            provinceCodeMap.put("2731", "520000");
+            provinceCodeMap.put("1859", "420000");
+            provinceCodeMap.put("707", "230000");
+            provinceCodeMap.put("1989", "430000");
+            provinceCodeMap.put("2139", "440000");
+            provinceCodeMap.put("1366", "360000");
+            provinceCodeMap.put("1489", "370000");
+            provinceCodeMap.put("3308", "630000");
+            provinceCodeMap.put("2985", "540000");
+            provinceCodeMap.put("235", "140000");
+            provinceCodeMap.put("3067", "610000");
+            provinceCodeMap.put("500", "210000");
+            provinceCodeMap.put("2", "110000");
+            provinceCodeMap.put("21", "120000");
+            provinceCodeMap.put("40", "130000");
+            provinceCodeMap.put("3361", "640000");
+            provinceCodeMap.put("3394", "650000");
+            provinceCodeMap.put("3510", "710000");
+            provinceCodeMap.put("3511", "810000");
+            provinceCodeMap.put("3512", "820000");
+            provinceCodeMap.put("3195", "620000");
+        }
+        private MultipleOutputs<NullWritable, Text> mos;
+
+
 
         private Map<String, PlatformWritable> platformMap = new HashMap<String, PlatformWritable>();
         private Map<String, String> orgMap = new HashMap<String, String>();
@@ -177,9 +223,15 @@ public class UserMapReduce {
             // 读取初始化数据
             readPlatform(context);
             readOrg(context);
+            mos = new MultipleOutputs<NullWritable, Text>(context);// 初始化mos
         }
         @Override
         protected void cleanup(Context context) throws IOException {
+            try {
+                mos.close();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             // 释放数据
             if(!platformMap.isEmpty()){
                 platformMap.clear();
@@ -191,7 +243,8 @@ public class UserMapReduce {
         @Override
         protected void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
             UserAll u = new UserAll();
-            String[] resultArray = new String[52];
+            String[] resultArray = new String[55];
+            String[] xxtResultArray = new String[26];
             //字段 顺序按 userTotal
 
             String isTeacher = "0";
@@ -212,6 +265,8 @@ public class UserMapReduce {
             List<String> platformIdList = new ArrayList<String>();
             List<String> platformNameList = new ArrayList<String>();
             List<String> platformTypeList = new ArrayList<String>();
+
+            List<String> platformUserIdList = new ArrayList<String>();
 
             for (Text value : values) {
                 //cloud_user_、cloud_user_、edu_org_user_relation
@@ -330,6 +385,7 @@ public class UserMapReduce {
                     if (platformId == null || platformId.isEmpty() || platformMap.get(platformId) == null) {
                         return;
                     }
+                    String platformUserId = fields[4];
                     PlatformWritable platform = platformMap.get(platformId);
                     String type = platform.getType();
                     if ("1".equals(type)) {
@@ -348,7 +404,7 @@ public class UserMapReduce {
                     platformIdList.add(platformId);
                     platformNameList.add(platform.getPlatformName());
                     platformTypeList.add(type);
-
+                    platformUserIdList.add(platformUserId);
                 }
 
             }
@@ -369,6 +425,7 @@ public class UserMapReduce {
             String platformIdListStr = StringUtils.join(platformIdList, "\u0002");
             String platformNameListStr = StringUtils.join(platformNameList, "\u0002");
             String platformTypeListStr = StringUtils.join(platformTypeList, "\u0002");
+            String platformUserIdListStr = StringUtils.join(platformUserIdList, "\u0002");
             resultArray[40] = isEdu;
             resultArray[41] = isXxt;
             resultArray[42] = isHbb;
@@ -378,6 +435,7 @@ public class UserMapReduce {
             resultArray[46] = platformIdListStr;
             resultArray[47] = platformNameListStr;
             resultArray[48] = platformTypeListStr;
+            resultArray[49] = platformUserIdListStr;
 
             // province,city,county,street  11-14
             String provinceId = resultArray[10];
@@ -388,15 +446,89 @@ public class UserMapReduce {
             String cityName = orgMap.get(cityId);
             String countyName = orgMap.get(countyId);
             String streetName = orgMap.get(streetId);
-            resultArray[49] = provinceName;
-            resultArray[50] = cityName;
-            resultArray[51] = countyName;
-            resultArray[51] = streetName;
+            String provinceCode = provinceCodeMap.get(provinceId);
+            resultArray[50] = provinceName;
+            resultArray[51] = cityName;
+            resultArray[52] = countyName;
+            resultArray[53] = streetName;
+            resultArray[54] = provinceCode;
 
             // handle total result array
             String resultStr = StringUtils.join(resultArray, "\u0001");
 
-            context.write(NullWritable.get(),new Text(resultStr));
+            //context.write(NullWritable.get(),new Text(resultStr));
+            mos.write(NullWritable.get(), new Text(resultStr), "all/all");
+
+            for (int i = 0; i < platformIdList.size(); i++) {
+
+                String platformUserId = platformUserIdList.get(i);
+                String isPlatformTeacher = "0";
+                String isPlatformStudent = "0";
+                String isPlatformParent = "0";
+                String type = platformTypeList.get(i);
+                if ("2".equals(type)) {
+                    String platformId = platformIdList.get(i);
+                    if (platformId == null) {
+                        continue;
+                    }
+                    PlatformWritable platform = platformMap.get(platformId);
+                    if (platform == null) {
+                        continue;
+                    }
+                    String platformProvinceId = platform.getProvinceId();
+                    if (platformProvinceId == null) {
+                        continue;
+                    }
+                    String platformProvinceName = orgMap.get(platformProvinceId);
+                    String platformProvinceCode = provinceCodeMap.get(platformProvinceId);
+                    for (int j = 0; j < rolePlatformIdList.size(); j++) {
+                        if (platformId.equals(rolePlatformIdList.get(j))) {
+                            String roleType = roleList.get(j);
+                            if ("1".equals(roleType)) {
+                                isPlatformTeacher = "1";
+                            } else if ("2".equals(roleType)) {
+                                isPlatformStudent = "1";
+                            } else if ("3".equals(roleType)) {
+                                isPlatformParent = "1";
+                            }
+                        }
+                    }
+
+                    System.arraycopy(resultArray, 0, xxtResultArray, 0, 14);
+                    if (platformProvinceId.equals(xxtResultArray[10])) {
+                        //用户省份与平台一致
+                        System.arraycopy(resultArray, 50, xxtResultArray, 14, 4);
+                    } else {
+                        xxtResultArray[14] = "";
+                        xxtResultArray[15] = "";
+                        xxtResultArray[16] = "";
+                        xxtResultArray[17] = "";
+                    }
+
+                    xxtResultArray[18] = platformProvinceId;
+                    xxtResultArray[19] = platformProvinceName;
+                    xxtResultArray[20] = platformUserId;
+                    if (platformUserId != null) {
+                        String platformUserIdClean = platformUserId;
+                        int index = platformUserId.indexOf("_");
+                        if (index!=-1) {
+                            platformUserIdClean = platformUserId.substring(index+1);
+                        }
+                        xxtResultArray[21] = platformUserIdClean;
+                    }
+                    xxtResultArray[22] = platformProvinceCode;
+
+                    xxtResultArray[23] = isPlatformTeacher;
+                    xxtResultArray[24] = isPlatformStudent;
+                    xxtResultArray[25] = isPlatformParent;
+
+                    String xxtResultArrayStr = StringUtils.join(xxtResultArray, "\u0001");
+
+                    mos.write(NullWritable.get(), new Text(xxtResultArrayStr), "xxt/xxt");
+                }
+            }
+
+
         }
     }
 
@@ -417,7 +549,7 @@ public class UserMapReduce {
         conf.set("platformPath", args[0]);
         conf.set("orgPath", args[1]);
         Job job = Job.getInstance(conf);
-        job.setJarByClass(UserMapReduce.class);
+        job.setJarByClass(UserMultiHandler.class);
 
         job.setMapperClass(RawDataMapper.class);
         job.setReducerClass(RawDataReduce.class);
@@ -439,6 +571,9 @@ public class UserMapReduce {
         }
         FileInputFormat.setInputPaths(job,paths);
         FileOutputFormat.setOutputPath(job,new Path(args[3]));
+
+        //取消part-r-00000新式文件输出
+        LazyOutputFormat.setOutputFormatClass(job, TextOutputFormat.class);
         //,new Path("D:/cloudtest/infile/cloud_user_test.csv"),new Path("D:/cloudtest/infile/edu_org_user_realtion.csv")
         boolean rs = job.waitForCompletion(true);
         System.out.println(rs?0:1);
