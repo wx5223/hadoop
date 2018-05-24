@@ -499,7 +499,11 @@ public class UserMultiHandler {
                         //用户省份与平台一致
                         System.arraycopy(resultArray, 50, xxtResultArray, 14, 4);
                     } else {
-                        xxtResultArray[14] = "";
+                        xxtResultArray[10] = platformProvinceId;
+                        xxtResultArray[11] = "";
+                        xxtResultArray[12] = "";
+                        xxtResultArray[13] = "";
+                        xxtResultArray[14] = platformProvinceName;
                         xxtResultArray[15] = "";
                         xxtResultArray[16] = "";
                         xxtResultArray[17] = "";
